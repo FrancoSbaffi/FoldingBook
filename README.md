@@ -1,66 +1,67 @@
 # FoldingBook 💻✨
 
-Efecto de plegado de pantalla (*folding display*) impulsado en tiempo real por el sensor de ángulo de la bisagra de tu MacBook. Al bajar la pantalla, el contenido del escritorio se proyecta en perspectiva compensando la inclinación física con un desenfoque progresivo (*progressive blur*) de grado GPU mediante Metal.
+Physical lid-angle-driven folding display effect for your MacBook. As you lower your screen, your real desktop content dynamically tilts in perspective to compensate for physical hinge inclination, accompanied by a progressive, GPU-accelerated Gaussian blur powered by Metal.
 
-Optimizado y verificado para **MacBook Air M4** (Apple Silicon, macOS Sonoma / Sequoia).
+Optimized and verified for **MacBook Air M4** (Apple Silicon, macOS Sonoma / Sequoia).
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Quick Start
 
-### 1. Ejecutar la aplicación
-Para compilar y abrir la app en segundo plano:
+### 1. Run the application
+To compile and launch the background menu bar application:
 
 ```bash
 ./scripts/run.sh
 ```
 
-La app aparecerá en tu barra de menús con el ícono de una MacBook (o mostrando los grados en tiempo real si activas el HUD).
+The app will appear in your macOS menu bar with a MacBook icon (or showing live hinge degrees if HUD mode is enabled).
 
-### 2. Atajo global y Controles
-- **Atajo global:** Presiona `⌃⌘L` (`Control + Command + L`) para activar o desactivar el efecto en cualquier momento.
-- **Click izquierdo en la barra de menús:** Activa / desactiva el efecto.
-- **Click derecho en la barra de menús:** Abre el menú de configuración:
-  - **Activate at or below:** Ajusta el ángulo límite a partir del cual se activa el efecto (por defecto 100°).
-  - **Jitter tolerance:** Filtro de vibraciones leves (0° para máxima sensibilidad en reposo).
-  - **Progressive Blur:** Desenfoque progresivo gaussiano acelerado por GPU (Metal Performance Shaders).
-  - **Hold Content Angle:** Mantiene el plano visual fijo mientras la bisagra física se mueve.
-  - **Perspective Taper:** Proyección cónica de perspectiva.
-  - **Show Lid Angle in Menu Bar:** Muestra los grados exactos del sensor en la barra de menús en tiempo real.
-  - **Simulate a Fold:** Prueba el efecto inmediatamente sin necesidad de mover físicamente la pantalla.
-
----
-
-## 🔒 Permisos Requeridos (Screen Recording)
-
-Para capturar la pantalla y aplicar la distorsión y desenfoque en tiempo real con ScreenCaptureKit, macOS requiere permiso de grabación de pantalla:
-
-1. Ve a **Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla y audio del sistema** (*Screen & System Audio Recording*).
-2. Asegúrate de habilitar **FoldingBook**.
-3. Si acabas de compilar la app por primera vez, macOS te pedirá autorización al encender el efecto. Simplemente concédela y reinicia la app.
+### 2. Global Shortcut and Controls
+- **Global Shortcut:** Press `⌃⌘L` (`Control + Command + L`) to toggle the effect on or off at any time.
+- **Left-click on menu bar icon:** Toggle the folding effect.
+- **Right-click on menu bar icon:** Open configuration menu:
+  - **Activate at or below:** Configure the hinge threshold angle where the fold activates (defaults to 100°).
+  - **Jitter tolerance:** Sensor noise filter (0° for maximum responsiveness).
+  - **Progressive Blur:** Depth-based Gaussian blur powered by Metal Performance Shaders.
+  - **Hold Visual Plane:** Keeps the desktop plane fixed while the lid rotates.
+  - **Perspective Projection:** Dynamic projective perspective taper.
+  - **Show Lid Angle in Menu Bar:** Displays real-time sensor angle directly in the menu bar.
+  - **Simulate a Fold:** Test the shader and visual warping immediately without physically moving your laptop screen.
 
 ---
 
-## ⚡ Cómo mantenerlo funcional el 100% del tiempo
+## 🔒 Required Permissions (Screen Recording)
 
-Para que FoldingBook esté activo **siempre**, incluso después de reiniciar la Mac o si el proceso se cierra inesperadamente:
+To capture live desktop frames and render the distortion and progressive blur in real time with ScreenCaptureKit, macOS requires Screen Recording permission:
 
-### Instalación como servicio permanente (LaunchAgent):
+1. Open **System Settings → Privacy & Security → Screen & System Audio Recording**.
+2. Ensure **FoldingBook** is toggled ON.
+3. If macOS prompts that the application will not have permissions until it restarts, click **Quit & Reopen** (or let launchd restart it automatically).
 
-Ejecuta el script de instalación automática:
+---
+
+## ⚡ 100% Uptime Autostart Service
+
+To keep FoldingBook running continuously in the background, surviving app crashes, sleep/wake cycles, and system reboots:
+
+### Install as a permanent service (LaunchAgent):
+
+Run the automated installer:
 
 ```bash
 ./scripts/install_autostart.sh
 ```
 
-Este comando:
-1. Compila la versión optimizada de producción (`release`).
-2. Instala la app en `/Applications/FoldingBook.app`.
-3. Registra un **LaunchAgent** en `~/Library/LaunchAgents/com.foldingbook.app.plist` con:
-   - `RunAtLoad: true` (se inicia automáticamente al encender o iniciar sesión).
-   - `KeepAlive: true` (`launchd` monitoriza el proceso y lo relanza de forma automática e inmediata si se detiene).
+This command:
+1. Compiles the optimized production release (`release`).
+2. Installs the application bundle into `/Applications/FoldingBook.app`.
+3. Registers a persistent **LaunchAgent** at `~/Library/LaunchAgents/com.foldingbook.app.plist` with:
+   - `RunAtLoad: true` (automatically launches upon user login).
+   - `KeepAlive: true` (`launchd` supervises the process and restarts it instantly if terminated).
+   - Redirects output logs to `/tmp/foldingbook.log` and `/tmp/foldingbook_err.log`.
 
-### Para desinstalar el servicio permanente:
+### Uninstall the autostart service:
 
 ```bash
 ./scripts/uninstall_autostart.sh
@@ -68,29 +69,29 @@ Este comando:
 
 ---
 
-## 🛠️ Comandos de Diagnóstico y Pruebas
+## 🛠️ Diagnostics & CLI Utilities
 
-Puedes probar cada subsistema de forma independiente desde la terminal:
+You can test individual subsystems directly from your terminal:
 
 ```bash
-# Probar la lectura en vivo del sensor de la bisagra (Apple Silicon HID)
+# Probe the live Apple Silicon HID lid angle sensor
 ./scripts/run.sh --probe
 
-# Ejecutar las pruebas unitarias de política de movimiento, filtros y seguridad
+# Run unit tests (motion policy, jitter filters, and clamshell safety gates)
 ./scripts/run.sh --test
 
-# Generar imágenes de muestra del shader de Metal en dist/
+# Generate Metal shader test preview images in dist/
 ./scripts/run.sh --preview
 
-# Verificar que la app esté corriendo en segundo plano
+# Verify that the app is actively running in background
 ./scripts/run.sh --verify
 ```
 
 ---
 
-## 📐 Arquitectura Técnica
+## 📐 Technical Architecture
 
-1. **Sensor HID (IOKit):** Lectura directa de bajo consumo del sensor de ángulo de la bisagra (`0x05ac / 0x8104 / 0x20 / 0x8a`). Sin accesos intrusivos.
-2. **ScreenCaptureKit:** Flujo de fotogramas a resolución nativa SDR Liquid Retina (2560x1664 en MacBook Air M4), excluyendo automáticamente la propia ventana de la app para evitar bucles de captura (*hall of mirrors*).
-3. **Metal Shaders & MPS:** Renderizado en GPU con 4 niveles de desenfoque gaussiano progresivo (`MPSImageGaussianBlur` sigmas 2, 6, 16, 40) vinculados a la distancia física respecto a la bisagra.
-4. **Ventana Overlay Clickeable:** Panel flotante transparente a nivel `.screenSaver` con `ignoresMouseEvents = true`, permitiendo que todos los clicks del ratón y atajos del teclado sigan interactuando normalmente con tus aplicaciones subyacentes.
+1. **HID Sensor (IOKit):** Ultra-low-power raw read of the internal MacBook lid angle sensor (`0x05ac / 0x8104 / 0x20 / 0x8a`). Non-invasive hardware query.
+2. **ScreenCaptureKit:** Full-resolution Liquid Retina SDR stream (2560x1664 on MacBook Air M4), automatically excluding the overlay window to prevent feedback loops.
+3. **Metal Shaders & MPS:** GPU-accelerated 4-level progressive Gaussian blur (`MPSImageGaussianBlur` sigmas 2, 6, 16, 40) mapped to physical distance from the hinge axis.
+4. **Transparent Passthrough Overlay:** Floating `.screenSaver` level panel with `ignoresMouseEvents = true`, ensuring full click-through and keyboard transparency for underlying applications.

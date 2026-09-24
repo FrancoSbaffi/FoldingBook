@@ -269,12 +269,12 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item("FoldingBook · \(status)", nil).isEnabled = false
 
         if !checkScreenCapturePermission() {
-            let permItem = item("⚠️ Habilitar Grabación de Pantalla…", #selector(openPermissions))
-            permItem.toolTip = "Haz click para abrir Ajustes del Sistema y activar el interruptor de FoldingBook."
+            let permItem = item("⚠️ Enable Screen Recording…", #selector(openPermissions))
+            permItem.toolTip = "Click to open System Settings and toggle the switch for FoldingBook."
             menu.addItem(.separator())
         }
 
-        let toggle = item(enabled ? "Desactivar Efecto" : "Activar Efecto", #selector(toggleEnabled))
+        let toggle = item(enabled ? "Disable Effect" : "Enable Effect", #selector(toggleEnabled))
         if shortcut != nil {
             toggle.keyEquivalent = "l"
             toggle.keyEquivalentModifierMask = [.control, .command]
@@ -283,28 +283,28 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
-        item("Activar por debajo de ángulo", #selector(toggleAngleMode), checked: angleMode)
+        item("Activate Below Angle", #selector(toggleAngleMode), checked: angleMode)
         let activation = NSMenuItem()
-        activation.view = MenuSlider(title: "Activar a ≤", value: activationAngle, range: 10...180, step: 1, enabled: angleMode) { [weak self] value in
+        activation.view = MenuSlider(title: "Activate at ≤", value: activationAngle, range: 10...180, step: 1, enabled: angleMode) { [weak self] value in
             self?.preferences.set(value, forKey: "activationAngle")
             self?.resetMotion()
         }
         menu.addItem(activation)
 
         let jitter = NSMenuItem()
-        jitter.view = MenuSlider(title: "Tolerancia jitter", value: jitterTolerance, range: 0...5, step: 0.5) { [weak self] value in
+        jitter.view = MenuSlider(title: "Jitter Tolerance", value: jitterTolerance, range: 0...5, step: 0.5) { [weak self] value in
             self?.preferences.set(value, forKey: "jitterTolerance")
             self?.resetMotion()
         }
         menu.addItem(jitter)
         menu.addItem(.separator())
 
-        item("Fijar ancla aquí (Anchor Here)", #selector(anchorHere)).isEnabled = enabled && !angleMode
-        item("Auto-anclar al reposar", #selector(toggleAutoAnchor), checked: autoAnchor && !angleMode).isEnabled = !angleMode
-        let delay = item("Pausa antes de anclar", nil)
+        item("Anchor Here", #selector(anchorHere)).isEnabled = enabled && !angleMode
+        item("Auto-Anchor on Rest", #selector(toggleAutoAnchor), checked: autoAnchor && !angleMode).isEnabled = !angleMode
+        let delay = item("Delay Before Anchor", nil)
         let submenu = NSMenu()
         for value in [AutoAnchor.defaultDelay, 0.3, 0.5, 1.0, 2.0] {
-            let choice = NSMenuItem(title: "\(value) segundos", action: #selector(setDelay(_:)), keyEquivalent: "")
+            let choice = NSMenuItem(title: "\(value) seconds", action: #selector(setDelay(_:)), keyEquivalent: "")
             choice.target = self
             choice.representedObject = value
             choice.state = preferences.double(forKey: "anchorDelay") == value ? .on : .off
@@ -314,15 +314,15 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         delay.isEnabled = !angleMode
         menu.addItem(.separator())
 
-        item("Desenfoque Progresivo (Progressive Blur)", #selector(toggleBlur), checked: renderer.blur)
-        item("Mantener Plano Fijo (Hold Angle)", #selector(toggleTilt), checked: renderer.warp)
-        item("Proyección en Perspectiva", #selector(togglePerspective), checked: renderer.perspective)
-        item("Mostrar Grados en Barra de Menús", #selector(toggleHUD), checked: preferences.bool(forKey: "showHUD"))
-        item("Simular Plegado (Simulate a Fold)", #selector(toggleSimulation), checked: simulated).isEnabled = enabled
+        item("Progressive Blur", #selector(toggleBlur), checked: renderer.blur)
+        item("Hold Visual Plane", #selector(toggleTilt), checked: renderer.warp)
+        item("Perspective Projection", #selector(togglePerspective), checked: renderer.perspective)
+        item("Show Lid Angle in Menu Bar", #selector(toggleHUD), checked: preferences.bool(forKey: "showHUD"))
+        item("Simulate a Fold", #selector(toggleSimulation), checked: simulated).isEnabled = enabled
         menu.addItem(.separator())
 
-        item("Ajustes de Grabación de Pantalla…", #selector(openPermissions))
-        item("Salir de FoldingBook", #selector(quit))
+        item("Screen Recording Settings…", #selector(openPermissions))
+        item("Quit FoldingBook", #selector(quit))
     }
 
     @objc private func toggleEnabled() {
@@ -349,7 +349,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Only start capture if screen recording permissions are actually preflight approved.
         // This permanently eliminates repeated macOS system permission modal popups.
         guard checkScreenCapturePermission(force: true) else {
-            status = "Permiso requerido"
+            status = "Permission required"
             refreshStatus()
             return
         }
@@ -358,8 +358,8 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         capturedDisplay = displayID
 
         starting = true
-        status = "Iniciando…"
-        NSLog("FoldingBook: Iniciando captura ScreenCaptureKit en pantalla %u...", displayID)
+        status = "Starting…"
+        NSLog("FoldingBook: Starting ScreenCaptureKit capture on display %u...", displayID)
         let session = DesktopCapture()
         capture = session
         session.onFrame = { [weak self, weak session] buffer in
@@ -367,12 +367,12 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let ok = self.renderer.setDesktopFrame(buffer)
             if ok && !self.hasFrame {
                 self.hasFrame = true
-                NSLog("FoldingBook: Primer fotograma recibido: %zu x %zu", CVPixelBufferGetWidth(buffer), CVPixelBufferGetHeight(buffer))
+                NSLog("FoldingBook: First desktop frame received: %zu x %zu", CVPixelBufferGetWidth(buffer), CVPixelBufferGetHeight(buffer))
             }
         }
         session.onError = { [weak self, weak session] error in
             guard let self, let session, self.capture === session else { return }
-            NSLog("FoldingBook: Error en captura: %@", error.localizedDescription)
+            NSLog("FoldingBook: Capture error: %@", error.localizedDescription)
             self.captureFailed(error)
         }
         Task { @MainActor in
@@ -383,12 +383,12 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return
                 }
                 starting = false
-                status = "Activo"
-                NSLog("FoldingBook: Captura iniciada exitosamente")
+                status = "Active"
+                NSLog("FoldingBook: Capture started successfully")
                 refreshStatus()
             } catch {
                 guard capture === session else { return }
-                NSLog("FoldingBook: Fallo en session.start: %@", error.localizedDescription)
+                NSLog("FoldingBook: session.start failed: %@", error.localizedDescription)
                 captureFailed(error)
             }
         }
@@ -419,7 +419,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if suspended || environment.lidClosed(now: now) == true || DisplayEnvironment.usableBuiltInScreen() == nil || (now - lastReading <= 1 && current <= 5) {
             stopCapture()
             safety.reset()
-            status = "Pausado · pantalla en cambio"
+            status = "Paused · display changing"
             refreshStatus()
             return
         }
@@ -427,9 +427,9 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         stopCapture()
         let denied = error.domain == SCStreamErrorDomain && error.code == -3801
         if denied || !checkScreenCapturePermission(force: true) {
-            status = "Permiso de grabación requerido"
+            status = "Screen recording permission required"
         } else {
-            status = "Captura no disponible"
+            status = "Capture unavailable"
         }
         refreshStatus()
     }
@@ -485,7 +485,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             renderer.delta = 0
             wantsOverlay = false
             window.orderOut(nil)
-            status = "Armado · sobre \(Int(activationAngle))°"
+            status = "Armed · above \(Int(activationAngle))°"
             refreshStatus()
             return
         }
@@ -502,12 +502,12 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard CaptureDemand.needsCapture(delta: renderer.delta, blur: renderer.blur, warp: renderer.warp) else {
             wantsOverlay = false
             window.orderOut(nil)
-            status = "Armado · reposo"
+            status = "Armed · resting"
             refreshStatus()
             return
         }
 
-        status = starting ? "Iniciando…" : (simulated ? "Demo" : (checkScreenCapturePermission() ? "Activo" : "Permiso requerido"))
+        status = starting ? "Starting…" : (simulated ? "Demo" : (checkScreenCapturePermission() ? "Active" : "Permission required"))
 
         wantsOverlay = hasFrame && abs(renderer.delta) > 0.002 && (renderer.blur || renderer.warp)
         if wantsOverlay {
@@ -527,7 +527,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshStatus() {
-        statusItem?.button?.toolTip = "FoldingBook: \(status). Click o ⌃⌘L para alternar; click derecho para opciones."
+        statusItem?.button?.toolTip = "FoldingBook: \(status). Click or ⌃⌘L to toggle; right-click for options."
         statusItem?.button?.appearsDisabled = !enabled
         guard let button = statusItem?.button else { return }
         let showAngle = preferences.bool(forKey: "showHUD")

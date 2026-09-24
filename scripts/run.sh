@@ -14,7 +14,7 @@ MODE="${1:-run}"
 case "$MODE" in
     run|--build|--probe|--preview|--verify|--test) ;;
     *)
-        echo "Uso: $0 [run|--build|--probe|--preview|--verify|--test]" >&2
+        echo "Usage: $0 [run|--build|--probe|--preview|--verify|--test]" >&2
         exit 1
         ;;
 esac
@@ -40,18 +40,18 @@ if [ "$MODE" = "--build" ]; then
     exit 0
 fi
 
-echo "==> Cerrando instancias anteriores de FoldingBook si las hay..."
+echo "==> Terminating previous FoldingBook instances if any..."
 pkill -x FoldingBook >/dev/null 2>&1 || true
 
-echo "==> Iniciando FoldingBook..."
+echo "==> Launching FoldingBook..."
 /usr/bin/open -n "$PROJECT_DIR/dist/FoldingBook.app"
 
 if [ "$MODE" = "--verify" ]; then
     sleep 1
     if pgrep -x FoldingBook >/dev/null; then
-        echo "==> FoldingBook está corriendo correctamente en segundo plano (PID: $(pgrep -x FoldingBook))."
+        echo "==> FoldingBook is running in background (PID: $(pgrep -x FoldingBook))."
     else
-        echo "==> Error: FoldingBook no se pudo iniciar."
+        echo "==> Error: FoldingBook failed to launch."
         exit 1
     fi
 fi

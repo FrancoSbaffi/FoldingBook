@@ -2,11 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$PWD/Package.swift" ]; then
-    PROJECT_DIR="$PWD"
-else
-    PROJECT_DIR="/Users/francosbaffidevgmail.com/Desktop/Cosas/WEBs/FoldingBook"
-fi
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
 echo "==> 1. Compiling FoldingBook..."

@@ -31,7 +31,10 @@ cat <<EOF > "$PLIST_PATH"
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <key>ProcessType</key>
     <string>Interactive</string>
     <key>StandardOutPath</key>
@@ -43,8 +46,8 @@ cat <<EOF > "$PLIST_PATH"
 EOF
 
 echo "==> 4. Activating service in launchd..."
-launchctl unload "$PLIST_PATH" >/dev/null 2>&1 || true
-launchctl load -w "$PLIST_PATH"
+launchctl bootout "gui/$(id -u)/com.foldingbook.app" 2>/dev/null || launchctl unload "$PLIST_PATH" 2>/dev/null || true
+launchctl load -w "$PLIST_PATH" 2>/dev/null || launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
 
 echo "==> Done! FoldingBook is installed and configured to run 100% of the time."
 echo "    - Automatically restarts if closed or upon system reboot."

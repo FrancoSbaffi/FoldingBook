@@ -45,6 +45,16 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastCaptureAttempt: TimeInterval = 0
     private var lastPermissionCheck: TimeInterval = 0
     private var cachedHasPermission: Bool = false
+    private var isScreenLocked = false
+
+    private func isCurrentSessionLocked() -> Bool {
+        if isScreenLocked { return true }
+        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any],
+           let locked = sessionDict["CGSSessionScreenIsLocked"] as? Bool, locked {
+            return true
+        }
+        return false
+    }
 
     private func checkScreenCapturePermission(force: Bool = false) -> Bool {
         let now = CACurrentMediaTime()
@@ -109,7 +119,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.hasShadow = false
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.level = .screenSaver
+        window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
 
         view = MTKView(frame: .zero, device: gpu)
@@ -165,6 +175,10 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep), name: NSWorkspace.screensDidSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.screensDidWakeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(displaysChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(screenLocked), name: NSNotification.Name("com.apple.screenIsLocked"), object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(screenUnlocked), name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sessionResigned), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sessionActive), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
 
         if let screen = DisplayEnvironment.usableBuiltInScreen() {
             fitOverlay(to: screen)
@@ -322,6 +336,7 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         item("Screen Recording Settings…", #selector(openPermissions))
+        item("Uninstall FoldingBook…", #selector(uninstall))
         item("Quit FoldingBook", #selector(quit))
     }
 
@@ -435,7 +450,13 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func update() {
-        guard !suspended else { return }
+        guard !suspended, !isCurrentSessionLocked() else {
+            if capture != nil || wantsOverlay {
+                stopCapture()
+                window.orderOut(nil)
+            }
+            return
+        }
         let now = CACurrentMediaTime()
         let pollInterval = enabled ? 1.0 / 30 : 0.2
         if (enabled || preferences.bool(forKey: "showHUD")), now - lastAnglePoll >= pollInterval {
@@ -640,8 +661,74 @@ final class MenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         view.drawableSize = CGSize(width: screen.frame.width * screen.backingScaleFactor, height: screen.frame.height * screen.backingScaleFactor)
     }
 
+    @objc private func screenLocked() {
+        isScreenLocked = true
+        stopCapture()
+        window?.orderOut(nil)
+        renderer.delta = 0
+        renderer.clearDesktopFrame()
+        status = "Paused · screen locked"
+        refreshStatus()
+    }
+
+    @objc private func screenUnlocked() {
+        isScreenLocked = false
+        safety.reset()
+        status = "Armed · resting"
+        refreshStatus()
+    }
+
+    @objc private func sessionResigned() {
+        screenLocked()
+    }
+
+    @objc private func sessionActive() {
+        screenUnlocked()
+    }
+
+    @objc private func uninstall() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Uninstall FoldingBook?"
+        alert.informativeText = "This will stop the application, remove the background autostart service, and move FoldingBook to the Trash."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            stopCapture()
+            window?.orderOut(nil)
+
+            let uid = getuid()
+            let plistPath = ("~/Library/LaunchAgents/com.foldingbook.app.plist" as NSString).expandingTildeInPath
+
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            task.arguments = ["bootout", "gui/\(uid)/com.foldingbook.app"]
+            try? task.run()
+            task.waitUntilExit()
+
+            let fallbackTask = Process()
+            fallbackTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            fallbackTask.arguments = ["unload", plistPath]
+            try? fallbackTask.run()
+            fallbackTask.waitUntilExit()
+
+            try? FileManager.default.removeItem(atPath: plistPath)
+
+            let appURL = Bundle.main.bundleURL
+            if appURL.path.hasPrefix("/Applications/FoldingBook.app") {
+                try? FileManager.default.trashItem(at: appURL, resultingItemURL: nil)
+            }
+
+            exit(0)
+        }
+    }
+
     @objc private func quit() {
-        NSApp.terminate(nil)
+        stopCapture()
+        window?.orderOut(nil)
+        exit(0)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

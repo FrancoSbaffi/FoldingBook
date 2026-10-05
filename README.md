@@ -28,6 +28,7 @@ The app will appear in your macOS menu bar with a MacBook icon (or showing live 
   - **Perspective Projection:** Dynamic projective perspective taper.
   - **Show Lid Angle in Menu Bar:** Displays real-time sensor angle directly in the menu bar.
   - **Simulate a Fold:** Test the shader and visual warping immediately without physically moving your laptop screen.
+  - **Uninstall FoldingBook…:** 1-click clean uninstallation (stops the service, removes LaunchAgent, and moves the app to Trash).
 
 ---
 
@@ -41,9 +42,9 @@ To capture live desktop frames and render the distortion and progressive blur in
 
 ---
 
-## ⚡ 100% Uptime Autostart Service
+## ⚡ Autostart & Background Service
 
-To keep FoldingBook running continuously in the background, surviving app crashes, sleep/wake cycles, and system reboots:
+FoldingBook is designed to run seamlessly in the background across sleep/wake cycles and system reboots:
 
 ### Install as a permanent service (LaunchAgent):
 
@@ -58,11 +59,22 @@ This command:
 2. Installs the application bundle into `/Applications/FoldingBook.app`.
 3. Registers a persistent **LaunchAgent** at `~/Library/LaunchAgents/com.foldingbook.app.plist` with:
    - `RunAtLoad: true` (automatically launches upon user login).
-   - `KeepAlive: true` (`launchd` supervises the process and restarts it instantly if terminated).
+   - `KeepAlive: SuccessfulExit = false` (restarts automatically if crashed, while allowing clean manual quits).
    - Redirects output logs to `/tmp/foldingbook.log` and `/tmp/foldingbook_err.log`.
 
-### Uninstall the autostart service:
+---
 
+## 🗑️ How to Uninstall
+
+You can cleanly uninstall FoldingBook at any time using either method:
+
+### Option A: Via the Menu Bar (Easiest)
+1. Right-click the **FoldingBook** icon in the macOS menu bar.
+2. Click **Uninstall FoldingBook…** and confirm.
+3. The background service will stop, the LaunchAgent plist will be removed, and `FoldingBook.app` will be moved to the Trash.
+
+### Option B: Via Terminal Script
+Run:
 ```bash
 ./scripts/uninstall_autostart.sh
 ```
@@ -94,4 +106,5 @@ You can test individual subsystems directly from your terminal:
 1. **HID Sensor (IOKit):** Ultra-low-power raw read of the internal MacBook lid angle sensor (`0x05ac / 0x8104 / 0x20 / 0x8a`). Non-invasive hardware query.
 2. **ScreenCaptureKit:** Full-resolution Liquid Retina SDR stream (2560x1664 on MacBook Air M4), automatically excluding the overlay window to prevent feedback loops.
 3. **Metal Shaders & MPS:** GPU-accelerated 4-level progressive Gaussian blur (`MPSImageGaussianBlur` sigmas 2, 6, 16, 40) mapped to physical distance from the hinge axis.
-4. **Transparent Passthrough Overlay:** Floating `.screenSaver` level panel with `ignoresMouseEvents = true`, ensuring full click-through and keyboard transparency for underlying applications.
+4. **Transparent Passthrough Overlay:** Floating level panel with `ignoresMouseEvents = true`, ensuring full click-through and keyboard transparency for underlying applications.
+5. **Lock Screen & Privacy Guard:** Automatically detects screen lock events and active session switches, stopping screen capture and hiding the overlay immediately so your native macOS lock screen wallpaper and user avatar are never obscured.
